@@ -1,18 +1,30 @@
 package main
 
 import (
+	"fmt"
+	"github.com/google/gopacket"
 	"github.com/google/gopacket/pcap"
-	"time"
+	"log"
 )
 
 var (
-	device        = "en0"
-	snaplen int32 = 65535
-	promisc       = false
-	err     error
-	timeout = -1 * time.Second
+	pcapFile = "http.cap"
 )
 
 func main() {
-	//handle, err = pcap.OpenLive()
+	packetsCounter := 0
+	handle, err := pcap.OpenOffline(pcapFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer handle.Close()
+
+	// Loop through packets in file
+	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+	for packet := range packetSource.Packets() {
+		fmt.Println(packet)
+		packetsCounter++
+	}
+
+	fmt.Printf("Total amount of packets in a dump: %d", packetsCounter)
 }
