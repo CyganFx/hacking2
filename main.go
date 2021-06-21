@@ -26,5 +26,5 @@ func main() {
 		packetsCounter++
 	}
 
-	fmt.Printf("Total amount of packets in a dump: %d", packetsCounter)
+	fmt.Printf("Total amount of packets in a dump: %d\n", packetsCounter)
 }
