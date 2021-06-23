@@ -145,28 +145,28 @@ func writeRequest(req *http.Request, h *httpStream) {
 func writeResponse(resp *http.Response, bodyBytes []byte) {
 	f, err := os.OpenFile("response.txt", os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("opening response file")
 	}
 	defer f.Close()
 
 	if _, err = f.WriteString(resp.Proto + " " + resp.Status + "\n"); err != nil {
-		log.Fatal(err)
+		log.Fatal("writing proto and status")
 	}
 
 	for k, v := range resp.Header {
 		strVal := strings.Join(v, " ")
 		if _, err = f.WriteString(k + ": " + strVal + "\n"); err != nil {
-			log.Fatal(err)
+			log.Fatal("writing header data")
 		}
 	}
 
 	// just new line
 	if _, err = f.WriteString("\n"); err != nil {
-		log.Fatal(err)
+		log.Fatal("inserting new line")
 	}
 
 	if _, err = f.WriteString(string(bodyBytes) + "\n"); err != nil {
-		log.Fatal(err)
+		log.Fatal("writing body")
 	}
 }
 

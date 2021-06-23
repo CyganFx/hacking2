@@ -23,9 +23,11 @@ import (
 )
 
 var (
-	pcapFile         string = "infocernch.pcap"
+	pcapFile         = "infocernch.pcap"
 	handle           *pcap.Handle
 	err              error
+	requestFile      = "request.txt"
+	responseFile     = "response.txt"
 	filter           = flag.String("f", "tcp and port 80", "BPF filter for pcap")
 	allowmissinginit = flag.Bool("allowmissinginit", false, "Support streams without SYN/SYN+ACK/ACK sequence")
 	hexdump          = flag.Bool("dump", false, "Dump HTTP request/response as hex")
@@ -34,6 +36,7 @@ var (
 	nooptcheck       = flag.Bool("nooptcheck", false, "Do not check TCP options (useful to ignore MSS on captures with TSO)")
 )
 
+// stats contains related data for output in the end
 var stats struct {
 	ipdefrag            int
 	missedBytes         int
@@ -52,29 +55,30 @@ var stats struct {
 	overlapPackets      int
 }
 
+// writeRequest appends lines in the related file
 func writeRequest(req *http.Request, h *httpReader) {
 	log.Println("Writing request")
 
-	f, err := os.OpenFile("request.txt", os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+	f, err := os.OpenFile(requestFile, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("opening request file")
 	}
 	defer f.Close()
 
 	log.Printf("File opened: req: %v; ident: %s\n", req, h.ident)
 
 	if _, err = f.WriteString(h.ident + "\n"); err != nil {
-		log.Fatal(err)
+		log.Fatal("writing ident")
 	}
 
 	if _, err = f.WriteString(req.Method + " " + req.RequestURI + " " + req.Proto + "\n"); err != nil {
-		log.Fatal(err)
+		log.Fatal("writing related data for request")
 	}
 
 	for k, v := range req.Header {
 		strVal := strings.Join(v, " ")
 		if _, err = f.WriteString(k + ": " + strVal + "\n"); err != nil {
-			log.Fatal(err)
+			log.Fatal("writing header data")
 		}
 	}
 }
@@ -82,32 +86,32 @@ func writeRequest(req *http.Request, h *httpReader) {
 func writeResponse(resp *http.Response, body []byte) {
 	log.Println("Writing response")
 
-	f, err := os.OpenFile("response.txt", os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+	f, err := os.OpenFile(responseFile, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("opening response file")
 	}
 	defer f.Close()
 
 	log.Printf("File opened: resp: %v; ident: %s\n", resp, string(body))
 
 	if _, err = f.WriteString(resp.Proto + " " + resp.Status + "\n"); err != nil {
-		log.Fatal(err)
+		log.Fatal("writing proto and status")
 	}
 
 	for k, v := range resp.Header {
 		strVal := strings.Join(v, " ")
 		if _, err = f.WriteString(k + ": " + strVal + "\n"); err != nil {
-			log.Fatal(err)
+			log.Fatal("writing header data")
 		}
 	}
 
 	// appending new line
 	if _, err = f.WriteString("\n"); err != nil {
-		log.Fatal(err)
+		log.Fatal("appending new line")
 	}
 
 	if _, err = f.WriteString(string(body) + "\n"); err != nil {
-		log.Fatal(err)
+		log.Fatal("writing body")
 	}
 }
 
@@ -122,6 +126,7 @@ type httpReader struct {
 
 func (h *httpReader) Read(p []byte) (n int, err error) {
 	log.Println("Reading data from reader")
+
 	ok := true
 	for ok && len(h.data) == 0 {
 		h.data, ok = <-h.bytes
@@ -137,10 +142,9 @@ func (h *httpReader) Read(p []byte) (n int, err error) {
 	return l, nil
 }
 
+// run sets up data for writing into files
 func (h *httpReader) run(wg *sync.WaitGroup) {
 	defer wg.Done()
-	log.Println("running httpReader")
-
 	buf := bufio.NewReader(h)
 	for {
 		if h.isClient {
@@ -195,6 +199,7 @@ type tcpStream struct {
 	optchecker     reassembly.TCPOptionCheck
 }
 
+// idk, just need to implement to make tcpStream an interface
 func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassembly.TCPFlowDirection, nextSeq reassembly.Sequence, start *bool, ac reassembly.AssemblerContext) bool {
 	// FSM
 	if !t.tcpstate.CheckState(tcp, dir) {
@@ -235,6 +240,7 @@ func (t *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassem
 	return accept
 }
 
+// idk, just need to implement to make tcpStream an interface
 func (t *tcpStream) ReassembledSG(sg reassembly.ScatterGather, ac reassembly.AssemblerContext) {
 	log.Println("Start reassemble")
 
@@ -320,6 +326,7 @@ func (t *tcpStream) ReassembledSG(sg reassembly.ScatterGather, ac reassembly.Ass
 	}
 }
 
+// idk, just need to implement to make tcpStream an interface
 func (t *tcpStream) ReassemblyComplete(ac reassembly.AssemblerContext) bool {
 	log.Printf("%s Reassembly Completed \n", t.ident)
 	if t.isHTTP {
@@ -335,6 +342,7 @@ type httpStreamFactory struct {
 	wg sync.WaitGroup
 }
 
+// New sets up stream, reader and runs the logic
 func (h *httpStreamFactory) New(net, transport gopacket.Flow, tcp *layers.TCP, assCtx reassembly.AssemblerContext) reassembly.Stream {
 	fsmOptions := reassembly.TCPSimpleFSMOptions{
 		SupportMissingEstablishment: *allowmissinginit,
@@ -395,7 +403,7 @@ func main() {
 	defer handle.Close()
 
 	if err := handle.SetBPFFilter(*filter); err != nil {
-		log.Fatal(err)
+		log.Fatal("setting filter")
 	}
 	log.Println("filter set")
 
