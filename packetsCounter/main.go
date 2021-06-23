@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
@@ -31,6 +30,6 @@ func main() {
 		}
 	}
 
-	fmt.Printf("Total amount of tcp packets in a dump: %d\n", tcpPacketsCounter)
-	fmt.Printf("Total amount of udp packets in a dump: %d\n", udpPacketsCounter)
+	log.Printf("Total amount of tcp packets in a dump: %d\n", tcpPacketsCounter)
+	log.Printf("Total amount of udp packets in a dump: %d\n", udpPacketsCounter)
 }
